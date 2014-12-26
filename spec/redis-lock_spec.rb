@@ -88,7 +88,7 @@ describe Redis::Lock do
       other_lock.lock
       sleep(1.1)
       lock.lock
-      other_lock.unlock
+      other_lock.unlock(true)
       @redis.get("lock:#{key}").should_not be_nil
     end
 
