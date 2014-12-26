@@ -1,0 +1,3 @@
+redis-lock*.gem
+*~
+.idea
