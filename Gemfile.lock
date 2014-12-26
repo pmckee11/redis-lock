@@ -27,4 +27,4 @@ PLATFORMS
 
 DEPENDENCIES
   pmckee11-redis-lock!
-  rspec
+  rspec (~> 3.0, >= 3.0)
