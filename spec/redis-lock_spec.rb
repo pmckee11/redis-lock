@@ -1,7 +1,4 @@
 require 'spec_helper'
-require 'redis-lock'
-require 'logger'
-require 'date' 
 
 describe Redis::Lock do
   let(:key) {"key"}
