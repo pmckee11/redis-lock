@@ -23,16 +23,18 @@ describe Redis::Lock do
   context "#lock" do
     it "should set an appropriate key in redis" do
       lock.lock
-      @redis.get("lock:#{key}").should_not be_nil
+      expect(@redis.get("lock:#{key}")).not_to be_nil
     end
 
     context "when a block is provided" do
       it "locks before yielding and releases after" do
+        expect(lock).to receive(:test_message)
         lock.lock do |l|
-          l.should == lock
-          @redis.get("lock:#{key}").should_not be_nil
+          expect(l).to eq(lock)
+          l.test_message
+          expect(@redis.get("lock:#{key}")).not_to be_nil
         end
-        @redis.get("lock:#{key}").should be_nil
+        expect(@redis.get("lock:#{key}")).to be_nil
       end
     end
 
@@ -45,8 +47,8 @@ describe Redis::Lock do
           other_lock.lock(2)
           fail()
         rescue => e
-          (Time.now - time).should be_within(0.1).of(2.0)
-          e.should be_a(Redis::Lock::AcquireLockTimeOut)
+          expect(Time.now - time).to be_within(0.1).of(2.0)
+          expect(e).to be_a(Redis::Lock::AcquireLockTimeOut)
         end
       end
     end
@@ -54,7 +56,7 @@ describe Redis::Lock do
     context "when initialized with auto_release_time" do
       it "sets the redis key with an appropriate expiration" do
         other_lock = Redis::Lock.new(@redis, key, :auto_release_time => 7)
-        @redis.should_receive(:set).with("lock:#{key}", an_instance_of(String), :nx => true, :ex => 7).and_return(true)
+        expect(@redis).to receive(:set).with("lock:#{key}", an_instance_of(String), :nx => true, :ex => 7).and_return(true)
         other_lock.lock
       end
     end
@@ -62,12 +64,12 @@ describe Redis::Lock do
     context "when initialized with base_sleep" do
       it "retries with exponential back off starting at base_sleep millis" do
         other_lock = Redis::Lock.new(@redis, key, :base_sleep => 25)
-        other_lock.should_receive(:sleep).with(0.025).ordered
-        other_lock.should_receive(:sleep).with(0.05).ordered
-        other_lock.should_receive(:sleep).with(0.1).ordered
-        other_lock.should_receive(:sleep).with(0.2).ordered
-        other_lock.should_receive(:sleep) do |sleep_time|
-          sleep_time.should == 0.4
+        expect(other_lock).to receive(:sleep).with(0.025).ordered
+        expect(other_lock).to receive(:sleep).with(0.05).ordered
+        expect(other_lock).to receive(:sleep).with(0.1).ordered
+        expect(other_lock).to receive(:sleep).with(0.2).ordered
+        expect(other_lock).to receive(:sleep) do |sleep_time|
+          expect(sleep_time).to eq(0.4)
           lock.unlock
         end.ordered
         lock.lock
@@ -80,7 +82,7 @@ describe Redis::Lock do
     it "should delete an appropriate key from redis" do
       lock.lock
       lock.unlock
-      @redis.get("lock:#{key}").should be_nil
+      expect(@redis.get("lock:#{key}")).to be_nil
     end
 
     it "should not delete a lock held by another instance" do
@@ -89,12 +91,12 @@ describe Redis::Lock do
       sleep(1.1)
       lock.lock
       other_lock.unlock(true)
-      @redis.get("lock:#{key}").should_not be_nil
+      expect(@redis.get("lock:#{key}")).not_to be_nil
     end
 
     context "when the instance has not been locked" do
       it "is a no op" do
-        @redis.should_not_receive(:eval)
+        expect(@redis).not_to receive(:eval)
         lock.unlock
       end
     end
@@ -104,7 +106,7 @@ describe Redis::Lock do
         other_lock = Redis::Lock.new(@redis, key, :auto_release_time => 1)
         other_lock.lock
         sleep(1)
-        @redis.should_not_receive(:eval)
+        expect(@redis).not_to receive(:eval)
         other_lock.unlock
       end
 
@@ -113,7 +115,7 @@ describe Redis::Lock do
           other_lock = Redis::Lock.new(@redis, key, :auto_release_time => 1)
           other_lock.lock
           sleep(1)
-          @redis.should_receive(:eval).with(Redis::Lock::UNLOCK_LUA_SCRIPT, ["lock:#{key}"], instance_of(Array)).once
+          expect(@redis).to receive(:eval).with(Redis::Lock::UNLOCK_LUA_SCRIPT, ["lock:#{key}"], instance_of(Array)).once
           other_lock.unlock(true)
         end
       end
@@ -122,17 +124,17 @@ describe Redis::Lock do
 
   context "#locked?" do
     it "correctly determines if the instance holds the lock" do
-      lock.locked?.should be_false
+      expect(lock.locked?).to be_falsey
       lock.lock
-      lock.locked?.should be_true
+      expect(lock.locked?).to be_truthy
       lock.unlock
-      lock.locked?.should be_false
+      expect(lock.locked?).to be_falsey
     end
 
     context "when the instance has not been locked" do
       it "is a no op" do
-        @redis.should_not_receive(:eval)
-        lock.unlock
+        expect(@redis).not_to receive(:get)
+        lock.locked?
       end
     end
 
@@ -141,8 +143,8 @@ describe Redis::Lock do
         other_lock = Redis::Lock.new(@redis, key, :auto_release_time => 1)
         other_lock.lock
         sleep(1)
-        @redis.should_not_receive(:get)
-        other_lock.locked?.should be_false
+        expect(@redis).not_to receive(:get)
+        expect(other_lock.locked?).to be_falsey
       end
 
       context "but force_remote is true" do
@@ -150,8 +152,8 @@ describe Redis::Lock do
           other_lock = Redis::Lock.new(@redis, key, :auto_release_time => 1)
           other_lock.lock
           sleep(1)
-          @redis.should_receive(:get).once.and_return(nil)
-          other_lock.locked?(true).should be_false
+          expect(@redis).to receive(:get).once.and_return(nil)
+          expect(other_lock.locked?(true)).to be_falsey
         end
       end
     end
