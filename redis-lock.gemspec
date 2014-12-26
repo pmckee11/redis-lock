@@ -10,7 +10,7 @@ Gem::Specification.new do |gem|
   gem.email         = ["pmckee11@gmail.com"]
   gem.description   = %q{Distributed lock using ruby redis}
   gem.summary       = %q{Distributed lock using ruby redis}
-  gem.homepage      = ""
+  gem.homepage      = "https://github.com/pmckee11/redis-lock"
   gem.license       = "MIT"
 
   gem.files         = `git ls-files`.split($/)
