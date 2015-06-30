@@ -123,18 +123,40 @@ describe Redis::Lock do
   end
 
   context "#locked?" do
+    context "when the lock is held" do
+      before :each do
+        lock.lock
+      end
+
+      after :each do
+        lock.unlock
+      end
+
+      it "returns true" do
+        expect(lock.locked_by_me?).to be_truthy
+      end
+    end
+
+    context "when the lock is not held" do
+      it "returns false" do
+        expect(lock.locked_by_me?).to be_falsey
+      end
+    end
+  end
+
+  context "#locked_by_me?" do
     it "correctly determines if the instance holds the lock" do
-      expect(lock.locked?).to be_falsey
+      expect(lock.locked_by_me?).to be_falsey
       lock.lock
-      expect(lock.locked?).to be_truthy
+      expect(lock.locked_by_me?).to be_truthy
       lock.unlock
-      expect(lock.locked?).to be_falsey
+      expect(lock.locked_by_me?).to be_falsey
     end
 
     context "when the instance has not been locked" do
       it "is a no op" do
         expect(@redis).not_to receive(:get)
-        lock.locked?
+        lock.locked_by_me?
       end
     end
 
@@ -144,7 +166,7 @@ describe Redis::Lock do
         other_lock.lock
         sleep(1)
         expect(@redis).not_to receive(:get)
-        expect(other_lock.locked?).to be_falsey
+        expect(other_lock.locked_by_me?).to be_falsey
       end
 
       context "but force_remote is true" do
@@ -153,7 +175,7 @@ describe Redis::Lock do
           other_lock.lock
           sleep(1)
           expect(@redis).to receive(:get).once.and_return(nil)
-          expect(other_lock.locked?(true)).to be_falsey
+          expect(other_lock.locked_by_me?(true)).to be_falsey
         end
       end
     end

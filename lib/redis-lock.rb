@@ -55,12 +55,16 @@ class Redis
       end
     end
 
+    def locked?
+      return !!@redis.get(@key)
+    end
+
     # Determines whether or not the lock is held by this instance. By default, this method relies on the expiration time
     # of the key  as a performance optimization when possible. If this is undesirable for some reason, set force_remote
     # to true.
     # @param force_remote Boolean for whether to verify with a call to the redis server instead of using the lock time
     # @return Boolean that is true if this lock instance currently holds the lock
-    def locked?(force_remote = false)
+    def locked_by_me?(force_remote = false)
       if @time_locked
         if force_remote
           return @redis.get(@key) == @instance_name
