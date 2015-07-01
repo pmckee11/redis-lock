@@ -133,13 +133,13 @@ describe Redis::Lock do
       end
 
       it "returns true" do
-        expect(lock.locked_by_me?).to be_truthy
+        expect(lock.locked?).to be_truthy
       end
     end
 
     context "when the lock is not held" do
       it "returns false" do
-        expect(lock.locked_by_me?).to be_falsey
+        expect(lock.locked?).to be_falsey
       end
     end
   end

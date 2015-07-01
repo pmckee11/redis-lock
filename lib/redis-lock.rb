@@ -55,8 +55,9 @@ class Redis
       end
     end
 
+    # @return Boolean that is true if the lock is currently held by any process
     def locked?
-      return !!@redis.get(@key)
+      return !@redis.get(@key).nil?
     end
 
     # Determines whether or not the lock is held by this instance. By default, this method relies on the expiration time
