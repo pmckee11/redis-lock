@@ -26,6 +26,16 @@ describe Redis::Lock do
       expect(@redis.get("lock:#{key}")).not_to be_nil
     end
 
+    context "when redis is a connection pool" do
+      let(:fake_pool) {ConnectionPool.new(Redis.new)}
+      let(:pool_lock) {Redis::Lock.new(fake_pool, key)}
+
+      it "should set an appropriate key in redis" do
+        pool_lock.lock
+        expect(fake_pool.with {|r| r.get("lock:#{key}")}).not_to be_nil
+      end
+    end
+
     context "when a block is provided" do
       it "locks before yielding and releases after" do
         expect(lock).to receive(:test_message)

@@ -12,7 +12,7 @@ class Redis
 
     UNLOCK_LUA_SCRIPT = "if redis.call('get',KEYS[1])==ARGV[1] then redis.call('del',KEYS[1]) end"
 
-    # @param redis is a Redis instance
+    # @param redis is a Redis instance or ConnectionPool
     # @param key String for a unique name of the lock to acquire
     # @param options[:auto_release_time] Int for the max number of seconds a lock can be held before it is auto released
     # @param options[:base_sleep] Int for the number of millis to sleep after the first time a lock is not acquired
@@ -49,7 +49,7 @@ class Redis
       # unlock is a no-op if we never called lock
       if @time_locked
         if Time.now < @time_locked + @auto_release_time || force_remote
-          @redis.eval(UNLOCK_LUA_SCRIPT, [@key], [@instance_name])
+          with_redis { |r| r.eval(UNLOCK_LUA_SCRIPT, [@key], [@instance_name]) }
         end
         @time_locked = nil
       end
@@ -57,7 +57,7 @@ class Redis
 
     # @return Boolean that is true if the lock is currently held by any process
     def locked?
-      return !@redis.get(@key).nil?
+      return !with_redis {|r| r.get(@key).nil? }
     end
 
     # Determines whether or not the lock is held by this instance. By default, this method relies on the expiration time
@@ -68,7 +68,7 @@ class Redis
     def locked_by_me?(force_remote = false)
       if @time_locked
         if force_remote
-          return @redis.get(@key) == @instance_name
+          return with_redis {|r| r.get(@key) == @instance_name }
         end
         if Time.now < @time_locked + @auto_release_time
           return true
@@ -86,7 +86,7 @@ class Redis
       sleep_time = @base_sleep_in_secs
       when_to_timeout = Time.now + acquire_timeout
       until locked
-        locked = @redis.set(@key, @instance_name, :nx => true, :ex => @auto_release_time)
+        locked = with_redis {|r| r.set(@key, @instance_name, :nx => true, :ex => @auto_release_time) }
         unless locked
           return false if Time.now > when_to_timeout
           sleep(sleep_time)
@@ -98,5 +98,14 @@ class Redis
       return true
     end
 
+    def with_redis(&blk)
+      if defined?(ConnectionPool) && @redis.is_a?(ConnectionPool)
+        @redis.with do |conn|
+          blk.call(conn)
+        end
+      else
+        blk.call(@redis)
+      end
+    end
   end
 end
