@@ -5,25 +5,25 @@ describe Redis::Lock do
   let(:lock) {Redis::Lock.new(@redis, key)}
 
   before(:all) do
-    @redis = Redis.new
+    @redis = ConnectionPool.new { Redis.new }
   end
 
   before(:each) do
-    @redis.flushdb
+    @redis.with {|r| r.flushdb}
   end
 
   after(:each) do
-    @redis.flushdb
+    @redis.with {|r| r.flushdb}
   end
 
   after(:all) do
-    @redis.quit
+    @redis.with {|r| r.quit}
   end
 
   context "#lock" do
     it "should set an appropriate key in redis" do
       lock.lock
-      expect(@redis.get("lock:#{key}")).not_to be_nil
+      expect(@redis.with {|r| r.get("lock:#{key}")}).not_to be_nil
     end
 
     context "when a block is provided" do
@@ -32,9 +32,9 @@ describe Redis::Lock do
         lock.lock do |l|
           expect(l).to eq(lock)
           l.test_message
-          expect(@redis.get("lock:#{key}")).not_to be_nil
+          expect(@redis.with {|r| r.get("lock:#{key}")}).not_to be_nil
         end
-        expect(@redis.get("lock:#{key}")).to be_nil
+        expect(@redis.with {|r| r.get("lock:#{key}")}).to be_nil
       end
     end
 
@@ -56,7 +56,7 @@ describe Redis::Lock do
     context "when initialized with auto_release_time" do
       it "sets the redis key with an appropriate expiration" do
         other_lock = Redis::Lock.new(@redis, key, :auto_release_time => 7)
-        expect(@redis).to receive(:set).with("lock:#{key}", an_instance_of(String), :nx => true, :ex => 7).and_return(true)
+        expect(@redis.with {|r| r}).to receive(:set).with("lock:#{key}", an_instance_of(String), :nx => true, :ex => 7).and_return(true)
         other_lock.lock
       end
     end
@@ -82,7 +82,7 @@ describe Redis::Lock do
     it "should delete an appropriate key from redis" do
       lock.lock
       lock.unlock
-      expect(@redis.get("lock:#{key}")).to be_nil
+      expect(@redis.with {|r| r.get("lock:#{key}")}).to be_nil
     end
 
     it "should not delete a lock held by another instance" do
@@ -91,12 +91,12 @@ describe Redis::Lock do
       sleep(1.1)
       lock.lock
       other_lock.unlock(true)
-      expect(@redis.get("lock:#{key}")).not_to be_nil
+      expect(@redis.with {|r| r.get("lock:#{key}")}).not_to be_nil
     end
 
     context "when the instance has not been locked" do
       it "is a no op" do
-        expect(@redis).not_to receive(:eval)
+        expect(@redis.with {|r| r}).not_to receive(:eval)
         lock.unlock
       end
     end
@@ -106,7 +106,7 @@ describe Redis::Lock do
         other_lock = Redis::Lock.new(@redis, key, :auto_release_time => 1)
         other_lock.lock
         sleep(1)
-        expect(@redis).not_to receive(:eval)
+        expect(@redis.with {|r| r}).not_to receive(:eval)
         other_lock.unlock
       end
 
@@ -115,7 +115,7 @@ describe Redis::Lock do
           other_lock = Redis::Lock.new(@redis, key, :auto_release_time => 1)
           other_lock.lock
           sleep(1)
-          expect(@redis).to receive(:eval).with(Redis::Lock::UNLOCK_LUA_SCRIPT, ["lock:#{key}"], instance_of(Array)).once
+          expect(@redis.with {|r| r}).to receive(:eval).with(Redis::Lock::UNLOCK_LUA_SCRIPT, ["lock:#{key}"], instance_of(Array)).once
           other_lock.unlock(true)
         end
       end
@@ -155,7 +155,7 @@ describe Redis::Lock do
 
     context "when the instance has not been locked" do
       it "is a no op" do
-        expect(@redis).not_to receive(:get)
+        expect(@redis.with {|r| r}).not_to receive(:get)
         lock.locked_by_me?
       end
     end
@@ -165,7 +165,7 @@ describe Redis::Lock do
         other_lock = Redis::Lock.new(@redis, key, :auto_release_time => 1)
         other_lock.lock
         sleep(1)
-        expect(@redis).not_to receive(:get)
+        expect(@redis.with {|r| r}).not_to receive(:get)
         expect(other_lock.locked_by_me?).to be_falsey
       end
 
@@ -174,11 +174,10 @@ describe Redis::Lock do
           other_lock = Redis::Lock.new(@redis, key, :auto_release_time => 1)
           other_lock.lock
           sleep(1)
-          expect(@redis).to receive(:get).once.and_return(nil)
+          expect(@redis.with {|r| r}).to receive(:get).once.and_return(nil)
           expect(other_lock.locked_by_me?(true)).to be_falsey
         end
       end
     end
   end
-  
 end
